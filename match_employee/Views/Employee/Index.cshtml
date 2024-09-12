@@ -1,0 +1,181 @@
+﻿@{
+    ViewData["Title"] = "Data View";
+    var validationMsg = TempData["validationMsg"] as string; //Validation Message sent by Employee/UploadEmployeeData
+}
+
+@model IEnumerable<Employee>
+
+<h5>Load Excel file to Employees Database Table</h5>
+<form asp-controller="Employee" asp-action="UploadEmployeeData" enctype="multipart/form-data">
+    <div class="input-group mb-3">
+        <input type="hidden" name="type" />
+        <input type="file" class="form-control" name="file">
+        <button class="btn btn-primary" for="inputGroupFile01" onclick="form.type.value='save'"><i class="bi bi-cloud-arrow-up-fill"></i> Load to Database</button>
+        <button class="btn btn-primary" for="inputGroupFile01" onclick="form.type.value='delete'"><i class="bi bi-trash"></i> Delete</button>
+    </div>
+</form>
+
+<h5>Load employee list(.xlsx) to be compared</h5>
+<form asp-controller="Employee" asp-action="Upload" enctype="multipart/form-data">
+    <div class="input-group mb-3">
+        <input type="file" class="form-control" name="file" onchange="" id="compare-file">
+        <button class="btn btn-danger" for="inputGroupFile01" id="compare-btn"><i class="bi bi-arrow-left-right"></i> Compare</button>
+        <button type="button" class="btn btn-secondary" for="inputGroupFile01" id="preview-btn"><i class="bi bi-aspect-ratio"></i> View</button>
+    </div>
+    <p id="message" class="text-danger"></p>
+</form>
+
+<h2>HR Employees Database Table</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Number</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Gender</th>
+            <th>Date of Birth</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var employee in Model)
+        {
+            <tr>
+                <td>@employee.Number</td>
+                <td>@employee.FirstName</td>
+                <td>@employee.LastName</td>
+                <td>@employee.Gender</td>
+                <td>@employee.DateOfBirth.ToShortDateString()</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<div class="modal fade" id="tbShowModal" tabindex="-1" role="dialog" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-custom" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel">Loaded Excel File</h5>
+                <button type="button" class="btn-close" id="closeModal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Gender</th>
+                            <th>Date of Birth</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalTableBody">
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p>@validationMsg</p>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+    // Hanlder of onchange event of File Upload Component with compare
+    $("#compare-file").change(function () {
+        var flag = false;
+
+        //check if file is set or not.
+        if (this.files.length > 0) {
+            flag = true;
+        } else {
+            flag = false;
+        }
+        
+        //check of file type is Excel format or not.
+        if(this.files[0].type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        {
+            $("#message").text("");   
+            flag = true;
+        } 
+        else
+        {
+            $("#message").text("Warnning: Only .xlsx file is able to upload.");
+            flag = false;
+        }
+
+        //Enable and Show buttons according to result of validation
+        if(flag)
+        {
+            $("#preview-btn").show();
+            $("#compare-btn").prop("disabled", false);
+        }
+        else
+        {
+            $("#preview-btn").hide();
+            $("#compare-btn").prop("disabled", true);
+        }
+    });
+
+    //bootstrap Modal Object
+    const tbModal = new bootstrap.Modal($("#tbShowModal"));
+    //Request for show table data from Excel file set on File Upload Component with compare
+    $("#preview-btn").click(function () {
+        var formData = new FormData();
+        formData.append("file", $("#compare-file")[0].files[0]);
+        $.ajax({
+            url: 'Employee/GetExcelView',
+            method: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+
+            success: function(employees) {
+                $("#modalTableBody").html(employees.reduce((content, employee) => 
+                    content + `<tr>
+                        <td>${employee['number']}</td>
+                        <td>${employee['firstName']}</td>
+                        <td>${employee['lastName']}</td>
+                        <td>${employee['gender']}</td>
+                        <td>${employee['dateOfBirth']}</td>
+                     </tr>
+                    `, '')
+                );
+            }
+        });
+        
+        tbModal.show(); 
+    });
+
+    //Close Modal when press close button of Modal
+    $('#closeModal').click(function () {
+        tbModal.hide();
+    });
+    
+    //inital process
+    $("#preview-btn").hide();
+    $("#compare-btn").prop("disabled", true);
+
+    //If validation message sent from backend is not empty, show alert
+    @if (!string.IsNullOrEmpty(validationMsg))
+    {
+        <text>
+             alert('@Html.Raw(validationMsg)')
+        </text>
+    }
+</script>
+
+<style>
+    /* Custom Modal Size */
+    .modal-custom {
+        max-width: 1200px; /* Change this value for different widths */
+    }
+
+    /* You can set custom heights as well */
+    .modal-body {
+        max-height: 600px; /* Change this value for different heights */
+        overflow-y: auto; /* Adds scroll if content is too large */
+    }
+</style>
